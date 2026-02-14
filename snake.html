@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Snake</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+    }
+    h1 { margin: 0 0 0.5rem; font-size: 1.5rem; }
+    p { margin: 0 0 0.75rem; font-size: 0.9rem; color: #888; }
+    #game {
+      width: 320px;
+      height: 320px;
+      background: #16213e;
+      border: 2px solid #0f3460;
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      grid-template-rows: repeat(16, 1fr);
+      gap: 1px;
+    }
+    .cell {
+      background: #1a1a2e;
+      transition: background 0.05s;
+    }
+    .snake { background: #4ecca3; }
+    .head { background: #2dd4bf; }
+    .food { background: #e94560; }
+    .game-over #game { opacity: 0.6; }
+    #msg {
+      margin-top: 0.75rem;
+      min-height: 1.5em;
+      font-size: 0.95rem;
+    }
+    #msg.start { color: #888; }
+    #msg.playing { color: #4ecca3; }
+    #msg.over { color: #e94560; }
+  </style>
+</head>
+<body>
+  <h1>Snake</h1>
+  <p>Arrow keys to move · Eat red, avoid walls and yourself</p>
+  <div id="game"></div>
+  <div id="msg" class="start">Press any arrow key to start</div>
+
+  <script>
+    (function () {
+      const R = 16;
+      const gameEl = document.getElementById('game');
+      const msgEl = document.getElementById('msg');
+
+      let cells = [];
+      for (let i = 0; i < R * R; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cell.dataset.i = i;
+        cells.push(cell);
+        gameEl.appendChild(cell);
+      }
+
+      function idx(y, x) {
+        x = ((x % R) + R) % R;
+        y = ((y % R) + R) % R;
+        return y * R + x;
+      }
+
+      let snake = [{ y: 8, x: 8 }];
+      let dir = { y: 0, x: 0 };
+      let food = { y: 4, x: 4 };
+      let running = false;
+      let gameOver = false;
+      let tickId = null;
+
+      function placeFood() {
+        const used = new Set(snake.map(s => s.y * R + s.x));
+        let cands = [];
+        for (let i = 0; i < R * R; i++) if (!used.has(i)) cands.push(i);
+        const i = cands[Math.floor(Math.random() * cands.length)];
+        food = { y: Math.floor(i / R), x: i % R };
+      }
+
+      function draw() {
+        cells.forEach(c => {
+          c.classList.remove('snake', 'head', 'food');
+        });
+        snake.forEach((s, i) => {
+          const k = idx(s.y, s.x);
+          cells[k].classList.add(i === snake.length - 1 ? 'head' : 'snake');
+        });
+        cells[food.y * R + food.x].classList.add('food');
+      }
+
+      function step() {
+        if (!running || gameOver) return;
+        const head = snake[snake.length - 1];
+        const ny = head.y + dir.y;
+        const nx = head.x + dir.x;
+        if (ny < 0 || ny >= R || nx < 0 || nx >= R) {
+          end();
+          return;
+        }
+        const ni = ny * R + nx;
+        const hitSelf = snake.some(s => s.y === ny && s.x === nx);
+        if (hitSelf) {
+          end();
+          return;
+        }
+        snake.push({ y: ny, x: nx });
+        if (ny === food.y && nx === food.x) {
+          placeFood();
+        } else {
+          snake.shift();
+        }
+        draw();
+      }
+
+      function end() {
+        gameOver = true;
+        running = false;
+        if (tickId) clearInterval(tickId);
+        msgEl.textContent = 'Game over! Refresh to play again.';
+        msgEl.className = 'over';
+        document.body.classList.add('game-over');
+      }
+
+      function start() {
+        if (running) return;
+        document.body.classList.remove('game-over');
+        snake = [{ y: 8, x: 8 }];
+        dir = { y: 0, x: 0 };
+        gameOver = false;
+        placeFood();
+        draw();
+        running = true;
+        msgEl.textContent = 'Score: 0';
+        msgEl.className = 'playing';
+        if (tickId) clearInterval(tickId);
+        tickId = setInterval(() => {
+          step();
+          if (running && !gameOver) msgEl.textContent = 'Score: ' + (snake.length - 1);
+        }, 120);
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (gameOver) return;
+        const key = e.key;
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) e.preventDefault();
+        if (!running && /Arrow/.test(key)) start();
+        if (key === 'ArrowUp' && dir.y !== 1) dir = { y: -1, x: 0 };
+        else if (key === 'ArrowDown' && dir.y !== -1) dir = { y: 1, x: 0 };
+        else if (key === 'ArrowLeft' && dir.x !== 1) dir = { y: 0, x: -1 };
+        else if (key === 'ArrowRight' && dir.x !== -1) dir = { y: 0, x: 1 };
+      });
+
+      draw();
+    })();
+  </script>
+</body>
+</html>
